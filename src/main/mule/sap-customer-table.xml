@@ -59,14 +59,18 @@ output application/xml
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
-payload.RFC_READ_TABLE.tables.DATA.*row.*WA map {
-	Customer: trim(($ splitBy ('|'))[0]),
-	Country: trim(($ splitBy ('|'))[1]),
-	Name: trim(($ splitBy ('|'))[2]),
-	City: trim(($ splitBy ('|'))[3]),
-	PostalCode: trim(($ splitBy ('|'))[4]),
-	Region: trim(($ splitBy ('|'))[5])
-}]]></ee:set-payload>
+payload.RFC_READ_TABLE.tables.DATA.*row map ((item, index) -> do {
+    var items = valuesOf(read(item.WA default "", "csv", {separator: "|", header:false})[0])
+    ---
+    {
+        (
+            payload.RFC_READ_TABLE.tables.FIELDS.*row map ((row, index) -> 
+                {
+                    (row.FIELDTEXT): trim(items[row.@id as Number])
+                })
+        )
+    }
+})]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 	</flow>
