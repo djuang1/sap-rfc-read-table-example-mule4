@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:sap="http://www.mulesoft.org/schema/mule/sap"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sap http://www.mulesoft.org/schema/mule/sap/current/mule-sap.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="ea9e2591-8fe9-4c51-a4f3-e5db1e36ca59" file="app.properties" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="b7af6a99-203f-4158-9d0b-140c9bc93d70" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<sap:sap-config name="SAP_Config" doc:name="SAP Config" doc:id="8489e16f-b099-4492-a6d4-6153a6092e5d" >
+		<sap:simple-connection-provider-connection username="${sap.jcoUser}" password="${sap.jcoPasswd}" systemNumber="${sap.jcoSysnr}" client="${sap.jcoClient}" applicationServerHost="${sap.jcoAsHost}" language="${sap.jcoLang}" />
+	</sap:sap-config>
+	<flow name="sap-customer-tableFlow" doc:id="7143f50a-63c4-4c6a-a8a5-6875dba6e5b3" >
+		<http:listener doc:name="/customers" doc:id="178c1ca9-f133-4a1a-9f95-045055560453" config-ref="HTTP_Listener_config" path="/customers"/>
+		<ee:transform doc:name="Transform Message" doc:id="9ddbeac2-ef91-4541-9f56-78167d6d66d8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{
+	RFC_READ_TABLE: {
+		"import": {
+			DELIMITER: "|",
+			QUERY_TABLE: "KNA1",
+			ROWCOUNT: "10"
+		},
+		tables: {
+			FIELDS: {
+				row: {
+					FIELDNAME: "KUNNR"
+				},
+				row: {
+					FIELDNAME: "LAND1"
+				},
+				row: {
+					FIELDNAME: "NAME1"
+				},
+				row: {
+					FIELDNAME: "ORT01"
+				},
+				row: {
+					FIELDNAME: "PSTLZ"
+				},
+				row: {
+					FIELDNAME: "REGIO"
+				}
+			}
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sap:sync-rfc doc:name="Synchronous Remote Function Call" doc:id="74fa861a-b951-4cf1-a455-22fb3894893d" config-ref="SAP_Config" key="RFC_READ_TABLE"/>
+		<ee:transform doc:name="Transform Message" doc:id="70d2e44a-a503-4e5d-94ae-04d12b0f8776" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.RFC_READ_TABLE.tables.DATA.*row.*WA map {
+	Customer: trim(($ splitBy ('|'))[0]),
+	Country: trim(($ splitBy ('|'))[1]),
+	Name: trim(($ splitBy ('|'))[2]),
+	City: trim(($ splitBy ('|'))[3]),
+	PostalCode: trim(($ splitBy ('|'))[4]),
+	Region: trim(($ splitBy ('|'))[5])
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
